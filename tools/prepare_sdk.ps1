@@ -22,7 +22,8 @@ $ObsVersion = "32.2.2"
 $DepsDate = "2026-07-15"
 # Pinned downloads (sha256 from the GitHub release pages, 2026-11-21).
 $Downloads = @(
-    @{ Name = "obs-src.zip"; Url = "https://github.com/obsproject/obs-studio/archive/refs/tags/$ObsVersion.zip"; Sha256 = "" },  # GitHub source archives carry no published hash
+    # The release's Sources tarball includes git submodules (obs-websocket); GitHub's tag zip does not.
+    @{ Name = "obs-src.tar.gz"; Url = "https://github.com/obsproject/obs-studio/releases/download/$ObsVersion/OBS-Studio-$ObsVersion-Sources.tar.gz"; Sha256 = "ec81fb66b03e75ddb3076b576f62679c39262e0e9960cef3e17a40dc5d68e6b4" },
     @{ Name = "obs-win.zip"; Url = "https://github.com/obsproject/obs-studio/releases/download/$ObsVersion/OBS-Studio-$ObsVersion-Windows-x64.zip"; Sha256 = "4d6e40e3ab155f56b30de517380566a206d74b63cdf5ad49aa596924768f97e1" },
     @{ Name = "qt6.zip";     Url = "https://github.com/obsproject/obs-deps/releases/download/$DepsDate/windows-deps-qt6-$DepsDate-x64.zip"; Sha256 = "7c7f985711d80467bdc1795b6592275a27d5b0e5a2c7a61db1f2c1d08d6a5579" }
 )
@@ -60,7 +61,9 @@ if ($FromLocal) {
     }
     if (-not (Test-Path $Src)) {
         $tmp = Join-Path $Root "src\_unzip"
-        Expand-Archive (Join-Path $Dl "obs-src.zip") $tmp -Force
+        New-Item -ItemType Directory -Force -Path $tmp | Out-Null
+        & tar -xzf (Join-Path $Dl "obs-src.tar.gz") -C $tmp
+        if ($LASTEXITCODE -ne 0) { throw "tar failed on obs-src.tar.gz" }
         Move-Item (Get-ChildItem $tmp | Select-Object -First 1).FullName $Src
         Remove-Item $tmp -Recurse -Force
     }
