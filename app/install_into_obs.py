@@ -12,7 +12,7 @@ from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent
 OBS_DIR = Path(os.environ["APPDATA"]) / "obs-studio"
-# Portable OBS: pass its folder, e.g.  install_into_obs.py C:\OBS-Multistream-Test
+# Portable OBS: pass its folder, e.g.  install_into_obs.py D:\MyPortableOBS
 if len(sys.argv) > 1:
     OBS_DIR = Path(sys.argv[1]) / "config" / "obs-studio"
 SCRIPT = (BASE_DIR / "obs_multistream_launcher.py").as_posix()
