@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Multistream Studio</title>
+<style>
+  :root {
+    --bg: #0e1014; --panel: #161920; --panel-2: #1d212a; --line: #272c37; --line-2: #343b49;
+    --text: #eceef3; --muted: #8d94a5; --dim: #5f6677;
+    --accent: #7c5cff; --accent-2: #9b82ff; --live: #ef4444; --ok: #22c55e; --warn: #f59e0b;
+    --wide: #38bdf8; --tall: #f472b6;
+    --twitch: #9146ff; --youtube: #ff1f3d; --tiktok: #25f4ee; --kick: #53fc18;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); }
+  body { font: 13px/1.45 "Segoe UI", system-ui, sans-serif; min-height: 100vh; }
+  button, input { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 12px; }
+
+  header { display: flex; align-items: center; gap: 9px; margin-bottom: 12px; }
+  .mark { width: 26px; height: 26px; border-radius: 7px; background: linear-gradient(135deg, var(--accent), #e0457b); display: grid; place-items: center; flex: none; }
+  .mark svg { width: 15px; height: 15px; }
+  h1 { font-size: 14px; margin: 0; font-weight: 650; }
+  .spacer { flex: 1; }
+  .pill { display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel); color: var(--muted); font-size: 12px; white-space: nowrap; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--dim); flex: none; }
+  .pill.ok .dot { background: var(--ok); } .pill.bad .dot { background: var(--live); }
+
+  nav { display: flex; gap: 2px; border-bottom: 1px solid var(--line); margin-bottom: 12px; }
+  nav button { background: none; border: 0; border-bottom: 2px solid transparent; padding: 7px 12px; color: var(--muted); font-weight: 600; margin-bottom: -1px; }
+  nav button.active { color: var(--text); border-bottom-color: var(--accent); }
+  .view { display: none; } .view.active { display: block; }
+
+  .btn { border: 1px solid var(--line-2); background: var(--panel-2); border-radius: 8px; padding: 7px 13px; font-weight: 600; transition: background .15s, border-color .15s; white-space: nowrap; }
+  .btn:hover { background: #262b37; border-color: #4a5266; }
+  .btn:disabled { opacity: .45; cursor: not-allowed; }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn.primary:hover { background: var(--accent-2); }
+  .btn.ghost { background: none; border-color: transparent; color: var(--muted); padding: 5px 8px; }
+  .btn.ghost:hover { color: var(--text); background: var(--panel-2); }
+  .btn.small { padding: 5px 10px; font-size: 12px; }
+  .btn.end { background: rgba(239,68,68,.15); border-color: rgba(239,68,68,.55); color: #fecaca; }
+  .btn.end:hover { background: rgba(239,68,68,.25); }
+  .btn.danger { color: #fca5a5; }
+
+  /* Hero */
+  .hero { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px; margin-bottom: 14px; }
+  .hero-top { display: flex; align-items: center; gap: 10px; }
+  .hero h2 { margin: 0; font-size: 16px; font-weight: 650; }
+  .hero .sub { color: var(--muted); font-size: 12.5px; margin-top: 2px; }
+  .hero .go { width: 100%; margin-top: 12px; padding: 11px; font-size: 14.5px; border-radius: 9px; }
+  .hero.live { border-color: rgba(239,68,68,.45); background: linear-gradient(180deg, rgba(239,68,68,.10), var(--panel) 70%); }
+  .live-badge { background: var(--live); color: #fff; font-weight: 700; font-size: 11px; letter-spacing: .5px; padding: 2px 8px; border-radius: 5px; animation: pulse 1.6s infinite; }
+  @keyframes pulse { 50% { opacity: .55; } }
+  .msg { margin-top: 10px; padding: 8px 10px; border-radius: 8px; font-size: 12.5px; }
+  .msg.bad { background: rgba(239,68,68,.09); border: 1px solid rgba(239,68,68,.35); color: #fecaca; }
+  .msg.warn { background: rgba(245,158,11,.08); border: 1px solid rgba(245,158,11,.35); color: #fde68a; }
+  .msg b { color: #fff; }
+
+  .label { display: flex; align-items: center; font-size: 11px; text-transform: uppercase; letter-spacing: .8px; color: var(--muted); font-weight: 650; margin: 0 2px 8px; }
+
+  /* Account cards */
+  .acct { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; margin-bottom: 8px; overflow: hidden; transition: border-color .2s; }
+  .acct.is-live { border-color: rgba(239,68,68,.4); }
+  .row { display: flex; align-items: center; gap: 11px; padding: 10px 12px; }
+  .logo { width: 38px; height: 38px; border-radius: 10px; display: grid; place-items: center; background: var(--panel-2); border: 1px solid var(--line); flex: none; position: relative; }
+  .logo svg { width: 19px; height: 19px; }
+  .logo img { width: 100%; height: 100%; border-radius: 9px; object-fit: cover; }
+  .logo .mini { position: absolute; right: -5px; bottom: -5px; width: 18px; height: 18px; border-radius: 6px; background: var(--panel); border: 1px solid var(--line); display: grid; place-items: center; }
+  .logo .mini svg { width: 10px; height: 10px; }
+  .info { flex: 1; min-width: 0; }
+  .name { font-weight: 650; font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .badges { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 3px; }
+  .badge { display: inline-flex; align-items: center; gap: 4px; font-size: 10.5px; font-weight: 650; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--line-2); color: var(--muted); white-space: nowrap; }
+  .badge svg { width: 10px; height: 10px; }
+  .badge.wide { color: #7dd3fc; border-color: rgba(56,189,248,.4); background: rgba(56,189,248,.08); }
+  .badge.tall { color: #f9a8d4; border-color: rgba(244,114,182,.4); background: rgba(244,114,182,.08); }
+  .badge.live { color: #fff; background: var(--live); border-color: var(--live); }
+  .badge.wait { color: #fcd34d; border-color: rgba(245,158,11,.4); }
+  .badge.err { color: #fca5a5; border-color: rgba(239,68,68,.4); }
+  .badge.off { color: var(--dim); }
+  .state-line { font-size: 12px; margin-top: 3px; color: var(--muted); }
+  .state-line.err { color: #fca5a5; }
+  .state-line.wait { color: #fcd34d; display: flex; gap: 6px; align-items: center; }
+  .acct.off .logo, .acct.off .name { opacity: .5; }
+
+  .switch { position: relative; width: 36px; height: 21px; flex: none; }
+  .switch input { opacity: 0; width: 0; height: 0; position: absolute; }
+  .switch span { position: absolute; inset: 0; background: #2c3240; border-radius: 999px; transition: .15s; cursor: pointer; }
+  .switch span::after { content: ""; position: absolute; width: 15px; height: 15px; left: 3px; top: 3px; border-radius: 50%; background: #9aa1b2; transition: .15s; }
+  .switch input:checked + span { background: var(--accent); }
+  .switch input:checked + span::after { transform: translateX(15px); background: #fff; }
+  .switch input:focus-visible + span { outline: 2px solid var(--accent-2); outline-offset: 2px; }
+
+  /* Panels */
+  .panel { border-top: 1px solid var(--line); background: #13161c; padding: 12px; display: grid; gap: 11px; }
+  .panel h4 { margin: 0; font-size: 13px; }
+  .panel p { margin: 0; color: var(--muted); font-size: 12.5px; }
+  .seg { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .seg button { display: flex; gap: 9px; align-items: center; text-align: left; padding: 9px 10px; border-radius: 9px; border: 1px solid var(--line-2); background: var(--panel-2); }
+  .seg button .shape { flex: none; border: 2px solid currentColor; border-radius: 3px; opacity: .8; }
+  .seg button .t b { display: block; font-size: 12.5px; }
+  .seg button .t span { color: var(--muted); font-size: 11.5px; }
+  .seg button.on.wide { border-color: var(--wide); background: rgba(56,189,248,.1); color: #bae6fd; }
+  .seg button.on.tall { border-color: var(--tall); background: rgba(244,114,182,.1); color: #fbcfe8; }
+  .field { display: grid; gap: 4px; }
+  .field label { font-size: 12px; color: var(--muted); }
+  input[type=text], input[type=password] { background: #0b0d11; border: 1px solid var(--line-2); border-radius: 7px; padding: 7px 9px; width: 100%; min-width: 0; }
+  input:focus { outline: none; border-color: var(--accent); }
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .toggle-row { display: flex; align-items: center; gap: 10px; }
+  .toggle-row .t { flex: 1; } .toggle-row .t div:first-child { font-weight: 600; } .toggle-row .t div + div { color: var(--muted); font-size: 12px; }
+  .spinner { width: 12px; height: 12px; border: 2px solid var(--line-2); border-top-color: var(--accent-2); border-radius: 50%; animation: spin .8s linear infinite; flex: none; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  a.ext { color: var(--accent-2); cursor: pointer; text-decoration: none; font-weight: 600; }
+
+  /* Add account */
+  .add { background: var(--panel); border: 1px dashed var(--line-2); border-radius: 12px; padding: 10px 12px; margin-bottom: 8px; }
+  .add-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .add-row .title { font-weight: 650; margin-right: 4px; }
+  .pbtn { display: inline-flex; align-items: center; gap: 7px; padding: 6px 11px; border-radius: 8px; border: 1px solid var(--line-2); background: var(--panel-2); font-weight: 600; font-size: 12.5px; }
+  .pbtn svg { width: 15px; height: 15px; }
+  .pbtn:hover { border-color: #4a5266; background: #262b37; }
+  .add .state-line { margin-top: 8px; }
+  .empty { color: var(--muted); padding: 14px 4px; text-align: center; font-size: 12.5px; }
+
+  .modes { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; background: var(--panel); padding: 2px; }
+  .modes button { border: 0; background: none; color: var(--muted); font-size: 11.5px; font-weight: 650; padding: 3px 10px; border-radius: 999px; }
+  .modes button.on { background: var(--panel-2); color: var(--text); }
+  .quality { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px; margin-top: 14px; display: grid; gap: 12px; }
+  .qrow { display: grid; gap: 6px; }
+  .qhead { display: flex; align-items: center; gap: 7px; font-weight: 650; }
+  .qhead svg { width: 15px; height: 15px; }
+  .qhead .n { color: var(--muted); font-weight: 500; font-size: 12px; }
+  .qhead.unused { opacity: .5; }
+  .qopts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .qopts button { text-align: left; padding: 7px 9px; border-radius: 8px; border: 1px solid var(--line-2); background: var(--panel-2); }
+  .qopts button b { display: block; font-size: 12.5px; }
+  .qopts button span { color: var(--muted); font-size: 11px; }
+  .qopts button.on { border-color: var(--accent); background: rgba(124,92,255,.14); }
+  .enc { display: grid; gap: 8px; padding: 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); }
+  .enc .sends { font-size: 12px; color: var(--muted); }
+  .enc .sends b { color: var(--text); font-weight: 600; }
+  .tip { font-size: 12px; color: var(--muted); }
+  .tip.warn { color: #fcd34d; }
+  .badge.q { color: #c4b5fd; border-color: rgba(124,92,255,.4); background: rgba(124,92,255,.08); }
+  .adv { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .adv select, .adv input { background: #0b0d11; border: 1px solid var(--line-2); border-radius: 7px; padding: 6px 8px; width: 100%; color: var(--text); }
+  .upload { font-size: 12px; color: var(--muted); }
+  .upload b { color: var(--text); }
+  .foot { display: flex; flex-wrap: wrap; gap: 6px 14px; color: var(--muted); font-size: 12px; margin-top: 12px; padding: 0 2px; }
+  .foot b { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .foot .bad { color: #fca5a5; }
+  .chat-frame { width: 100%; height: calc(100vh - 120px); min-height: 360px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); }
+
+  #toasts { position: fixed; right: 12px; bottom: 12px; display: grid; gap: 6px; z-index: 10; max-width: min(380px, calc(100vw - 24px)); }
+  .toast { background: #222733; border: 1px solid var(--line-2); border-left: 3px solid var(--accent); border-radius: 8px; padding: 9px 12px; box-shadow: 0 8px 24px rgba(0,0,0,.4); animation: in .15s ease-out; }
+  .toast.err { border-left-color: var(--live); } .toast.ok { border-left-color: var(--ok); }
+  @keyframes in { from { transform: translateY(6px); opacity: 0; } }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute">
+  <symbol id="i-twitch" viewBox="0 0 24 24"><path fill="currentColor" d="M4.3 2 3 5.4v13.8h4.6V22h2.6l2.7-2.8h3.8l5.2-5.2V2H4.3zm15.4 11-3 3h-4.8l-2.6 2.6V16H5.5V3.8h14.2V13zM16.3 6.8h-1.8v5.2h1.8V6.8zm-4.8 0H9.7v5.2h1.8V6.8z"/></symbol>
+  <symbol id="i-youtube" viewBox="0 0 24 24"><path fill="currentColor" d="M23 7.2a3 3 0 0 0-2.1-2.1C19 4.6 12 4.6 12 4.6s-7 0-8.9.5A3 3 0 0 0 1 7.2 31 31 0 0 0 .5 12 31 31 0 0 0 1 16.8a3 3 0 0 0 2.1 2.1c1.9.5 8.9.5 8.9.5s7 0 8.9-.5a3 3 0 0 0 2.1-2.1c.4-1.6.5-4.8.5-4.8s0-3.2-.5-4.8zM9.7 15V9l5.8 3-5.8 3z"/></symbol>
+  <symbol id="i-tiktok" viewBox="0 0 24 24"><path fill="currentColor" d="M16.6 2h-3.4v13.4a2.9 2.9 0 1 1-2.9-2.9c.3 0 .6 0 .9.1V9.2a6.3 6.3 0 1 0 5.4 6.2V8.7a8 8 0 0 0 4.6 1.5V6.8a4.6 4.6 0 0 1-4.6-4.8z"/></symbol>
+  <symbol id="i-kick" viewBox="0 0 24 24"><path fill="currentColor" d="M3 2h6v6h2V5h2V2h6v7h-2v2h-2v2h2v2h2v7h-6v-3h-2v-3H9v6H3V2z"/></symbol>
+  <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.8" fill="currentColor"/><circle cx="12" cy="12" r="1.8" fill="currentColor"/><circle cx="19" cy="12" r="1.8" fill="currentColor"/></symbol>
+  <symbol id="i-wide" viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="2.4"/></symbol>
+  <symbol id="i-tall" viewBox="0 0 24 24"><rect x="6.5" y="2" width="11" height="20" rx="2" fill="none" stroke="currentColor" stroke-width="2.4"/></symbol>
+  <symbol id="i-key" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" d="M14.5 9.5a4 4 0 1 1-1.2-2.8M14 10l7 7m-3-3 2-2"/></symbol>
+</svg>
+
+<div class="wrap">
+  <header>
+    <div class="mark"><svg viewBox="0 0 24 24"><path fill="#fff" d="M4 6h3v12H4zM10.5 6h3v12h-3zM17 6h3v12h-3z"/></svg></div>
+    <h1>Multistream</h1>
+    <div class="spacer"></div>
+    <span class="modes" id="modes" title="Simple shows only what you need. Advanced shows every setting."><button data-m="simple">Simple</button><button data-m="advanced">Advanced</button></span>
+    <span class="pill bad" id="obsPill"><span class="dot"></span><span id="obsText">OBS offline</span></span>
+  </header>
+
+  <nav id="tabs">
+    <button class="active" data-tab="stream">Stream</button>
+    <button data-tab="chat">Chat</button>
+  </nav>
+
+  <section class="view active" id="view-stream">
+    <div class="hero" id="hero"></div>
+    <div class="label">Your accounts</div>
+    <div id="accounts"></div>
+    <div class="add" id="add"></div>
+    <div class="quality" id="quality"></div>
+    <div class="foot" id="foot"></div>
+  </section>
+
+  <section class="view" id="view-chat">
+    <iframe class="chat-frame" id="chatFrame" title="Chat"></iframe>
+  </section>
+</div>
+<div id="toasts"></div>
+
+<script>
+const P = {
+  twitch:  { name: 'Twitch',  color: 'var(--twitch)',  server: 'rtmp://live.twitch.tv/app' },
+  youtube: { name: 'YouTube', color: 'var(--youtube)', server: 'rtmp://a.rtmp.youtube.com/live2' },
+  tiktok:  { name: 'TikTok',  color: 'var(--tiktok)',  server: '' },
+  kick:    { name: 'Kick',    color: 'var(--kick)',    server: 'rtmps://fa723fc1b171.global-contribute.live-video.net/app' },
+};
+const ORDER = ['twitch', 'youtube', 'tiktok', 'kick'];
+let S = null;      // last status
+let open = {};     // account id -> 'manage' | 'manual';  "new:<platform>" -> 'manual' for a pasted-key account
+let busy = false;
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const icon = (id, color) => `<svg style="color:${color || 'currentColor'}"><use href="#i-${id}"/></svg>`;
+const mbps = k => k >= 1000 ? (k / 1000).toFixed(1) + ' Mbps' : k + ' kbps';
+const clock = s => [Math.floor(s / 3600), Math.floor(s / 60) % 60, s % 60].map(n => String(n).padStart(2, '0')).join(':');
+
+function toast(text, kind = '') {
+  const el = document.createElement('div');
+  el.className = 'toast ' + kind; el.textContent = text;
+  $('toasts').appendChild(el);
+  setTimeout(() => el.remove(), kind === 'err' ? 7000 : 3000);
+}
+async function api(path, body) {
+  try {
+    const r = await fetch(path, body === undefined ? {} : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    return await r.json();
+  } catch (e) { return { success: false, error: "Can't reach the Multistream Studio app. Restart OBS (the plugin starts it), or run MultistreamStudio.exe." }; }
+}
+const openLink = url => api('/api/open', { url }).then(r => r.success ? toast('Opened in your browser') : toast(r.error, 'err'));
+
+$('tabs').addEventListener('click', e => {
+  const t = e.target.dataset.tab; if (!t) return;
+  document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('active', b.dataset.tab === t));
+  document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === 'view-' + t));
+  if (t === 'chat') $('chatFrame').src = 'chat.html?embed=1';
+});
+
+async function poll() {
+  const s = await api('/api/status');
+  if (s.accounts) {
+    const first = !S; S = s;
+    // index.html#open=tiktok opens that platform's first account settings (handy for testing / links).
+    const want = first && new URLSearchParams(location.hash.slice(1)).get('open');
+    const a = want && S.accounts.find(x => x.platform === want);
+    if (a) open[a.id] = 'manage';
+    render();
+  }
+  else {
+    $('obsPill').className = 'pill bad'; $('obsText').textContent = 'App offline';
+    if (!S) $('hero').innerHTML = `<div class="hero-top"><div><h2>Multistream Studio isn't running</h2><div class="sub">${esc(s.error || '')}</div></div></div>`;
+  }
+  setTimeout(poll, 1200);
+}
+
+function render() {
+  $('obsPill').className = 'pill ' + (S.obs.connected ? 'ok' : 'bad');
+  $('obsText').textContent = S.obs.connected ? 'OBS connected' : 'OBS offline';
+  renderModes(); renderHero(); renderAccounts(); renderAdd(); renderQuality(); renderFoot();
+}
+
+// ------------------------------------------------------------------ hero
+function renderHero() {
+  const chosen = S.accounts.filter(a => a.enabled && a.ready);
+  let h;
+  if (S.live) {
+    const on = S.accounts.filter(a => a.enabled && a.state !== 'off'), liveN = on.filter(a => a.state === 'live').length;
+    h = `<div class="hero-top"><span class="live-badge">LIVE</span><div><h2>${clock(S.live_seconds)}</h2>
+         <div class="sub">${S.receiving ? `Live on ${liveN} of ${on.length} accounts · sending ${mbps(S.output_kbps)}` : 'Waiting for OBS to send video…'}</div></div></div>
+         <button class="btn end go" ${busy ? 'disabled' : ''} onclick="stopAll()">End stream everywhere</button>
+         <div class="msg warn">Flip an account's switch to add or remove it while you're live.</div>`;
+  } else {
+    const wide = chosen.filter(a => a.canvas !== 'vertical').length, tall = chosen.length - wide;
+    const parts = [wide && `${wide} wide`, tall && `${tall} tall`].filter(Boolean).join(' + ');
+    const sub = !S.obs.connected ? 'Open OBS so Multistream can control it.'
+      : chosen.length ? `Ready: ${chosen.length} account${chosen.length > 1 ? 's' : ''} (${parts})` : 'Add an account below to get started.';
+    h = `<div class="hero-top"><div><h2>You're offline</h2><div class="sub">${esc(sub)}</div></div></div>
+         <button class="btn primary go" ${busy || !chosen.length || !S.obs.connected ? 'disabled' : ''} onclick="goLive()">${busy ? 'Starting…' : chosen.length ? `Go live on ${chosen.length} account${chosen.length > 1 ? 's' : ''}` : 'Go live'}</button>`;
+    if (!S.obs.connected) h += `<div class="msg bad"><b>OBS isn't connected.</b> ${esc(S.obs.error)}</div>`;
+  }
+  if (S.notice) h += `<div class="msg warn">${esc(S.notice)}</div>`;
+  $('hero').className = 'hero' + (S.live ? ' live' : '');
+  $('hero').innerHTML = h;
+}
+
+// ------------------------------------------------------------------ account cards
+function badges(a) {
+  const b = [];
+  b.push(a.canvas === 'vertical' ? `<span class="badge tall" title="Gets the tall 9:16 phone picture">${icon('tall')}Tall 9:16</span>`
+                                 : `<span class="badge wide" title="Gets the wide 16:9 picture">${icon('wide')}Wide 16:9</span>`);
+  const qname = { low: 'Low', good: 'Good', best: 'Best' }[a.quality] || 'Custom';
+  b.push(`<span class="badge q" title="Encoding for this account">${qname} · ${mbps(a.bitrate)}${a.send && a.res !== 'full' ? ` · ${a.send.height > a.send.width ? a.send.width : a.send.height}p` : ''}</span>`);
+  if (S.live && a.enabled) {
+    if (a.state === 'live') b.push(`<span class="badge live">LIVE · ${mbps(a.kbps)}</span>`);
+    if (a.state === 'live' && adv() && a.frames) b.push(`<span class="badge ${a.dropped / a.frames > 0.02 ? 'err' : ''}" title="Frames dropped because the upload couldn't keep up">Dropped ${(a.dropped / a.frames * 100).toFixed(1)}%</span>`);
+    if (a.state === 'live' && a.congestion > 0.3) b.push(`<span class="badge wait" title="The platform isn't taking data as fast as it's sent. Lower this account's quality if it keeps happening.">Upload struggling</span>`);
+    if (a.state === 'waiting' || a.state === 'connecting') b.push(`<span class="badge wait">${a.state === 'waiting' ? 'Waiting for OBS' : esc(a.note || 'Connecting…')}</span>`);
+    else if (a.state === 'reconnecting') b.push(`<span class="badge err" title="${esc(a.error || '')}">${esc(a.note || 'Reconnecting…')}</span>`);
+    else if (a.state === 'error') b.push(`<span class="badge err">Stopped</span>`);
+  } else if (!a.enabled) b.push(`<span class="badge off">Not going live</span>`);
+  if (a.source === 'manual') b.push(`<span class="badge" title="Uses a pasted stream key">${icon('key')}Stream key</span>`);
+  if (a.platform === 'tiktok' && a.source === 'signin' && a.auto_key) b.push(`<span class="badge" title="Gets a fresh TikTok key each time you go live">New key each LIVE</span>`);
+  return b.join('');
+}
+
+function stateLine(a) {
+  if (a.login && a.login.state === 'waiting') return `<div class="state-line wait"><span class="spinner"></span>${esc(a.login.message)}</div>`;
+  if (a.login && a.login.state === 'error') return `<div class="state-line err">${esc(a.login.message)}</div>`;
+  if (S.live && a.enabled && a.error && a.state === 'reconnecting') return `<div class="state-line wait"><span class="spinner"></span>${esc(a.error)}</div>`;
+  if (S.live && a.enabled && a.error && a.state !== 'live') return `<div class="state-line err">${esc(a.error)}</div>`;
+  return '';
+}
+
+function card(a) {
+  const m = P[a.platform];
+  const logo = a.avatar
+    ? `<div class="logo"><img src="${esc(a.avatar)}" alt="" onerror="this.remove()"><span class="mini">${icon(a.platform, m.color)}</span></div>`
+    : `<div class="logo">${icon(a.platform, m.color)}</div>`;
+  const isLive = S.live && a.enabled && a.state === 'live';
+  return `<div class="acct ${a.enabled ? '' : 'off'} ${isLive ? 'is-live' : ''}">
+    <div class="row">${logo}
+      <div class="info"><div class="name">${esc(a.display_name || a.username || m.name)}</div><div class="badges">${badges(a)}</div>${stateLine(a)}</div>
+      <label class="switch" title="${a.enabled ? 'Goes live' : "Doesn't go live"}"><input type="checkbox" ${a.enabled ? 'checked' : ''} onchange="setEnabled('${a.id}', this.checked)"><span></span></label>
+      <button class="btn ghost" title="Settings" onclick="toggle('${a.id}','manage')"><svg width="16" height="16"><use href="#i-more"/></svg></button>
+    </div>
+    ${open[a.id] ? `<div class="panel">${open[a.id] === 'manual' ? manualPanel(a.platform, a) : managePanel(a)}</div>` : ''}</div>`;
+}
+
+function canvasPicker(a) {
+  const v = a.canvas === 'vertical';
+  return `<div class="field"><label>Which picture does this account get?</label><div class="seg">
+    <button class="wide ${v ? '' : 'on'}" onclick="update('${a.id}', {canvas: 'main'})"><span class="shape" style="width:22px;height:13px"></span><span class="t"><b>Wide 16:9</b><span>Normal stream, like a TV</span></span></button>
+    <button class="tall ${v ? 'on' : ''}" onclick="update('${a.id}', {canvas: 'vertical'})"><span class="shape" style="width:11px;height:19px"></span><span class="t"><b>Tall 9:16</b><span>Phone-shaped, for TikTok and Shorts</span></span></button>
+  </div></div>`;
+}
+
+const ENCODERS = { obs_nvenc_h264_tex: 'NVIDIA H.264', jim_nvenc: 'NVIDIA H.264', ffmpeg_nvenc: 'NVIDIA H.264',
+  obs_qsv11_v2: 'Intel Quick Sync', h264_texture_amf: 'AMD H.264', obs_x264: 'x264 (CPU)' };
+const TIPS = {
+  twitch: [6000, 'Twitch works best at 6 Mbps or less (Good). Higher can buffer for viewers.'],
+  youtube: [51000, 'YouTube handles Best easily.'],
+  kick: [8000, 'Kick accepts up to 8 Mbps (Best).'],
+  tiktok: [6000, 'TikTok: Good is plenty for phones.'],
+};
+function encodingSection(a) {
+  const q = [['low', 'Low', 'Slow internet'], ['good', 'Good', 'Best for most'], ['best', 'Best', 'Sharpest, fast internet']];
+  const snd = a.send || {};
+  const enc = S.engine === 'plugin' ? (ENCODERS[snd.encoder] || snd.encoder || 'GPU') : (a.canvas === 'vertical' ? 'NVIDIA (crop)' : "a copy of OBS's own stream");
+  let h = `<div class="enc"><div class="field"><label>Quality for this account</label>
+    <div class="qopts">${q.map(([v, l, d]) => `<button class="${a.quality === v ? 'on' : ''}" onclick="update('${a.id}', {quality: '${v}'})"><b>${l}</b><span>${d}</span></button>`).join('')}</div></div>
+    <div class="sends">Sends <b>${snd.width}×${snd.height}</b> at <b>${Math.round(snd.fps || 30)} fps</b>, <b>${mbps(a.bitrate)}</b>, using <b>${esc(enc)}</b>${a.quality === 'custom' ? ' (custom)' : ''}.</div>`;
+  const tip = TIPS[a.platform];
+  if (tip) h += `<div class="tip ${a.bitrate > tip[0] ? 'warn' : ''}">${a.bitrate > tip[0] ? 'Heads up: ' : ''}${tip[1]}</div>`;
+  if (adv()) {
+    const res = [['full', 'Full size'], ['1080', '1080p'], ['720', '720p'], ['480', '480p']];
+    h += `<div class="adv">
+      <div class="field"><label>Bitrate (kbps)</label><input type="number" min="500" max="50000" step="250" value="${a.bitrate}" onchange="update('${a.id}', {bitrate: +this.value})"></div>
+      <div class="field"><label>Encoder speed</label><select onchange="update('${a.id}', {speed: this.value})">
+        ${[['fast', 'Fast (lighter on the GPU)'], ['quality', 'Balanced'], ['best', 'Best (heavier)']].map(([v, l]) => `<option value="${v}" ${a.speed === v ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
+      <div class="field"><label>Resolution sent</label><select onchange="update('${a.id}', {res: this.value})">
+        ${res.map(([v, l]) => `<option value="${v}" ${a.res === v ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
+      <div class="field"><label>Keyframe interval</label><input type="text" value="2 s (what platforms expect)" disabled></div>
+    </div>`;
+    if (S.engine !== 'plugin') h += `<div class="tip">Without the Multistream plugin, Wide accounts copy OBS's own stream, so their quality follows OBS Settings › Output.</div>`;
+  }
+  return h + `</div>`;
+}
+
+function managePanel(a) {
+  let h = canvasPicker(a) + encodingSection(a);
+  if (a.platform === 'tiktok' && a.source === 'signin') {
+    h += `<div class="toggle-row"><div class="t"><div>Get a fresh key each time I go live</div><div>Needs an account that's allowed to LIVE from streaming software. Turn off to paste a key yourself.</div></div>
+          <label class="switch"><input type="checkbox" ${a.auto_key ? 'checked' : ''} onchange="update('${a.id}', {auto_key: this.checked})"><span></span></label></div>
+          <div class="field"><label>LIVE title</label><input type="text" value="${esc(a.title)}" onchange="update('${a.id}', {title: this.value})"></div>`;
+  }
+  h += `<p>${a.source === 'manual' ? `Using a pasted stream key for <b>${esc(a.server)}</b>.` : `Signed in as <b>${esc(a.display_name || a.username)}</b>.`}</p>
+        <div class="actions">${a.source === 'manual' ? `<button class="btn small" onclick="toggle('${a.id}','manual')">Change key</button>` : `<button class="btn small" onclick="reconnect('${a.id}')">Sign in again</button>`}
+        <button class="btn small danger" onclick="removeAccount('${a.id}')">${confirmRemove === a.id ? 'Click again to remove' : 'Remove account'}</button></div>`;
+  return h;
+}
+
+function manualPanel(platform, a) {
+  const id = a ? a.id : 'new:' + platform;
+  return `<h4>${a ? 'Change stream key' : `Add ${P[platform].name} with a stream key`}</h4>
+    <p>${platform === 'tiktok' ? `Copy the server URL and stream key from ${`<a class="ext" onclick="openLink('https://livecenter.tiktok.com/producer')">TikTok LIVE Producer ↗</a>`}. Only accounts allowed to LIVE from streaming software have one.`
+      : `Find these in your ${P[platform].name} dashboard's stream settings.`}</p>
+    ${a ? '' : `<div class="field"><label>Name (so you can tell accounts apart)</label><input type="text" id="nm-${id}" placeholder="${P[platform].name} account"></div>`}
+    <div class="field"><label>Server</label><input type="text" id="srv-${id}" value="${esc((a && a.server) || P[platform].server)}" placeholder="rtmp://..."></div>
+    <div class="field"><label>Stream key</label><input type="password" id="key-${id}" placeholder="${a && a.key_set ? 'Saved. Paste to replace it' : 'Paste your stream key'}"></div>
+    <div class="actions"><button class="btn primary" onclick="saveManual('${platform}', '${a ? a.id : ''}')">Save</button><button class="btn ghost" onclick="toggle('${id}')">Cancel</button></div>`;
+}
+
+let lastHtml = '';
+function renderAccounts() {
+  // Don't redraw while someone is typing in a panel.
+  const ae = document.activeElement;
+  if (ae && ae.closest && ae.closest('.panel') && ((ae.tagName === 'INPUT' && ae.type !== 'checkbox') || ae.tagName === 'SELECT')) return;
+  const list = [...S.accounts].sort((x, y) => ORDER.indexOf(x.platform) - ORDER.indexOf(y.platform));
+  const html = list.length ? list.map(card).join('') : `<div class="empty">No accounts yet. Add one below.</div>`;
+  if (html !== lastHtml) { $('accounts').innerHTML = html; lastHtml = html; }
+}
+
+// ------------------------------------------------------------------ add account
+let addHtml = '';
+function renderAdd() {
+  const ae = document.activeElement;
+  if (ae && ae.closest && ae.closest('#add') && ae.tagName === 'INPUT') return;
+  const lines = ORDER.map(p => {
+    const st = S.adding[p] || {};
+    if (st.state === 'waiting') return `<div class="state-line wait"><span class="spinner"></span>${P[p].name}: ${esc(st.message)}</div>`;
+    if (st.state === 'error') return `<div class="state-line err">${P[p].name}: ${esc(st.message)}</div>`;
+    return '';
+  }).join('');
+  const manual = Object.keys(open).find(k => k.startsWith('new:') && open[k]);
+  let h = `<div class="add-row"><span class="title">+ Add account</span>
+    ${ORDER.map(p => `<button class="pbtn" onclick="addAccount('${p}')">${icon(p, P[p].color)}${P[p].name}</button>`).join('')}</div>${lines}`;
+  if (manual) h += `<div class="panel" style="margin:10px -12px -10px">${manualPanel(manual.slice(4))}</div>`;
+  else h += `<div style="margin-top:6px;font-size:12px;color:var(--muted)">Have a stream key instead? ${ORDER.map(p => `<a class="ext" onclick="toggle('new:${p}','manual')">${P[p].name}</a>`).join(' · ')}</div>`;
+  if (h !== addHtml) { $('add').innerHTML = h; addHtml = h; }
+}
+
+// ------------------------------------------------------------------ simple / advanced + quality
+const adv = () => S.settings.ui_mode === 'advanced';
+function renderModes() {
+  document.querySelectorAll('#modes button').forEach(b => b.classList.toggle('on', b.dataset.m === S.settings.ui_mode));
+}
+$('modes').addEventListener('click', async e => {
+  const m = e.target.dataset.m; if (!m) return;
+  const r = await api('/api/settings', { ui_mode: m });
+  if (r.success) { S.settings = r.settings; lastHtml = addHtml = qHtml = ''; render(); }
+});
+
+let qHtml = '';
+function renderQuality() {
+  const on = S.accounts.filter(x => x.enabled && x.ready);
+  // Every account sends its own copy, so upload = sum of their bitrates (+ audio).
+  const total = on.reduce((t, x) => t + (x.bitrate || 6000) + 160, 0);
+  let h = '';
+  if (on.length) h += `<div class="upload">Going live on ${on.length} account${on.length > 1 ? 's' : ''} uploads about <b>${(total / 1000).toFixed(1)} Mbps</b>. Keep that under about half of your internet's upload speed (check it at speedtest.net). Change each account's quality in its ⋯ menu.</div>`;
+  if (adv()) {
+    const encs = new Set(on.map(x => `${x.canvas}|${x.bitrate}|${x.speed}|${x.res}`)).size;
+    h += `<div class="upload">Engine: <b>${S.engine === 'plugin' ? 'Multistream OBS plugin' : 'Relay (plugin not loaded)'}</b>${S.plugin ? ` · ${on.length ? `<b>${encs}</b> encoder${encs === 1 ? '' : 's'} for ${on.length} account${on.length === 1 ? '' : 's'} (same settings share one)` : ''}` : ''}</div>`;
+  }
+  $('quality').style.display = h ? '' : 'none';
+  if (h !== qHtml) { $('quality').innerHTML = h; qHtml = h; }
+}
+
+function renderFoot() {
+  const o = S.obs;
+  if (!o.connected || !adv()) { $('foot').innerHTML = ''; return; }
+  const miss = o.render_total ? o.render_missed / o.render_total * 100 : 0, skip = o.encode_total ? o.encode_skipped / o.encode_total * 100 : 0;
+  const bad = (v, lim) => v > lim ? 'bad' : '';
+  let h = `<span>OBS <b>${o.fps} fps</b></span><span>CPU <b class="${bad(o.cpu, 80)}">${o.cpu}%</b></span>
+           <span>Missed frames <b class="${bad(miss, 1)}">${miss.toFixed(1)}%</b></span><span>Encoder skipped <b class="${bad(skip, 1)}">${skip.toFixed(1)}%</b></span>`;
+  if (S.live) h += `<span>From OBS <b>${mbps(S.input_kbps)}</b></span><span>Uploading <b>${mbps(S.output_kbps)}</b></span>`;
+  h += `<span>App <b>${esc(S.version || '?')}</b></span><span>Plugin <b>${S.plugin ? esc(S.plugin.version || '?') : 'not loaded'}</b></span>`;
+  $('foot').innerHTML = h;
+}
+
+// ------------------------------------------------------------------ actions
+function toggle(id, kind) { open[id] = open[id] === kind || !kind ? null : kind; lastHtml = addHtml = ''; render(); }
+
+async function addAccount(p) {
+  if (!S.apps_ready[p]) { toast(`${P[p].name} sign-in isn't switched on in this copy. Use a stream key instead.`, 'err'); toggle('new:' + p, 'manual'); return; }
+  const r = await api('/api/accounts/add', { platform: p });
+  if (!r.success) return toast(r.error, 'err');
+  toast(p === 'tiktok' ? 'A TikTok sign-in window is opening.' : `Sign in to ${P[p].name} in your browser.`);
+}
+async function reconnect(id) {
+  const r = await api('/api/accounts/reconnect', { id });
+  if (!r.success) return toast(r.error, 'err');
+  open[id] = null; toast('Sign in again in the window that opened.');
+}
+let confirmRemove = null;
+async function removeAccount(id) {
+  if (confirmRemove !== id) {  // two clicks instead of a popup (OBS docks don't always show popups)
+    confirmRemove = id; lastHtml = ''; renderAccounts();
+    setTimeout(() => { if (confirmRemove === id) { confirmRemove = null; lastHtml = ''; renderAccounts(); } }, 4000);
+    return;
+  }
+  confirmRemove = null;
+  await api('/api/accounts/remove', { id });
+  open[id] = null; lastHtml = ''; toast('Account removed');
+}
+async function update(id, fields) {
+  const r = await api('/api/accounts/update', { id, fields });
+  if (!r.success) return toast(r.error, 'err');
+  if (r.restarting) toast('Applying now: this account reconnects in a few seconds.', 'ok');
+  lastHtml = '';
+}
+async function saveManual(platform, id) {
+  const k = id || 'new:' + platform;
+  const r = await api('/api/accounts/manual', { platform, id: id || null, server: $('srv-' + k).value, key: $('key-' + k).value, name: id ? '' : $('nm-' + k).value });
+  if (!r.success) return toast(r.error, 'err');
+  open[k] = null; lastHtml = addHtml = ''; toast(`${P[platform].name} saved`, 'ok');
+}
+async function setEnabled(id, on) {
+  const r = await api('/api/accounts/enabled', { id, on });
+  if (!r.success) toast(r.error, 'err');
+}
+async function goLive() {
+  busy = true; renderHero();
+  const r = await api('/api/golive', {});
+  busy = false;
+  Object.entries(r.results || {}).forEach(([id, x]) => {
+    const a = S.accounts.find(z => z.id === id);
+    if (!x.success) toast(`${a ? (a.display_name || P[a.platform].name) : 'Account'}: ${x.error}`, 'err');
+  });
+  if (!r.success) toast(r.error || 'Could not go live', 'err'); else toast('Going live…', 'ok');
+}
+async function stopAll() { busy = true; renderHero(); await api('/api/stopall', {}); busy = false; toast('Stream ended'); }
+
+poll();
+</script>
+</body>
+</html>

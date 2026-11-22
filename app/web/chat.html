@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Multistream Chat</title>
+<style>
+  :root { --bg: #0e1014; --panel: #161920; --line: #262b36; --line-2: #323846; --text: #e8eaf0; --muted: #8a91a1; --accent: #7c5cff; --twitch: #9146ff; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font: 13px/1.45 "Segoe UI", system-ui, sans-serif; }
+  body.embed { background: var(--panel); }
+  .app { display: flex; flex-direction: column; height: 100%; }
+  .top { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+  .top svg { width: 16px; height: 16px; color: var(--twitch); flex: none; }
+  .top b { font-weight: 650; }
+  .state { margin-left: auto; font-size: 11.5px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: #5d6474; }
+  .dot.on { background: #22c55e; }
+  #log { flex: 1; overflow-y: auto; padding: 6px 10px 10px; }
+  .msg { padding: 3px 0; word-wrap: break-word; }
+  .msg .badge { font-size: 10px; font-weight: 700; padding: 0 5px; border-radius: 4px; margin-right: 4px; vertical-align: 1px; }
+  .b-mod { background: #00ad03; color: #fff; } .b-vip { background: #e005b9; color: #fff; } .b-sub { background: #7c5cff; color: #fff; } .b-broadcaster { background: #e91916; color: #fff; }
+  .msg .user { font-weight: 700; }
+  .msg .emote { height: 22px; vertical-align: middle; margin: -3px 0; }
+  .msg.event { color: var(--muted); font-style: italic; }
+  .empty { margin: auto; text-align: center; color: var(--muted); padding: 24px; max-width: 320px; }
+  .empty form { display: flex; gap: 6px; margin-top: 10px; }
+  input { flex: 1; background: #0f1218; border: 1px solid var(--line-2); border-radius: 7px; padding: 6px 9px; color: var(--text); font: inherit; min-width: 0; }
+  input:focus { outline: none; border-color: var(--accent); }
+  button { background: var(--accent); border: 0; color: #fff; border-radius: 7px; padding: 6px 12px; font: inherit; font-weight: 600; cursor: pointer; }
+  .foot { padding: 6px 10px; border-top: 1px solid var(--line); color: var(--muted); font-size: 11.5px; }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="top">
+    <svg viewBox="0 0 24 24"><path fill="currentColor" d="M4.3 2 3 5.4v13.8h4.6V22h2.6l2.7-2.8h3.8l5.2-5.2V2H4.3zm15.4 11-3 3h-4.8l-2.6 2.6V16H5.5V3.8h14.2V13zM16.3 6.8h-1.8v5.2h1.8V6.8zm-4.8 0H9.7v5.2h1.8V6.8z"/></svg>
+    <b id="title">Twitch chat</b>
+    <span class="state"><span class="dot" id="dot"></span><span id="stateText">Not connected</span></span>
+  </div>
+  <div id="log"></div>
+  <div class="foot">Read-only Twitch chat. YouTube, TikTok and Kick chat aren't connected yet.</div>
+</div>
+
+<script>
+if (new URLSearchParams(location.search).has('embed')) document.body.classList.add('embed');
+const log = document.getElementById('log');
+const MAX = 200;
+let ws = null, channel = '', retry = 1000;
+
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+function setState(on, text) {
+  document.getElementById('dot').classList.toggle('on', on);
+  document.getElementById('stateText').textContent = text;
+}
+
+function showSetup() {
+  log.innerHTML = `<div class="empty">Connect Twitch on the Stream tab and your chat shows up here. Or type any channel name to watch its chat now:
+    <form onsubmit="saveChannel(event)"><input id="chan" placeholder="channel name" autocomplete="off"><button>Show</button></form></div>`;
+  log.style.display = 'flex';
+}
+
+function saveChannel(e) {
+  e.preventDefault();
+  const v = document.getElementById('chan').value.trim().replace(/^#/, '').toLowerCase();
+  if (v) start(v);
+}
+
+function parseTags(raw) {
+  const tags = {};
+  raw.slice(1).split(';').forEach(kv => { const i = kv.indexOf('='); tags[kv.slice(0, i)] = kv.slice(i + 1); });
+  return tags;
+}
+
+function renderText(text, emotes) {
+  // emotes: "25:0-4,12-16/1902:6-10"
+  if (!emotes) return esc(text);
+  const chars = [...text], spots = [];
+  emotes.split('/').forEach(e => {
+    const [id, ranges] = e.split(':');
+    ranges.split(',').forEach(r => { const [a, b] = r.split('-').map(Number); spots.push({ a, b, id }); });
+  });
+  spots.sort((x, y) => x.a - y.a);
+  let out = '', pos = 0;
+  spots.forEach(s => {
+    out += esc(chars.slice(pos, s.a).join(''));
+    const name = chars.slice(s.a, s.b + 1).join('');
+    out += `<img class="emote" alt="${esc(name)}" title="${esc(name)}" src="https://static-cdn.jtvnw.net/emoticons/v2/${encodeURIComponent(s.id)}/default/dark/1.0">`;
+    pos = s.b + 1;
+  });
+  return out + esc(chars.slice(pos).join(''));
+}
+
+function add(html, cls = '') {
+  const atBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 40;
+  const div = document.createElement('div');
+  div.className = 'msg ' + cls;
+  div.innerHTML = html;
+  log.appendChild(div);
+  while (log.children.length > MAX) log.firstChild.remove();
+  if (atBottom) log.scrollTop = log.scrollHeight;
+}
+
+function handleLine(line) {
+  if (line.startsWith('PING')) return ws.send('PONG :tmi.twitch.tv');
+  let tags = {}, rest = line;
+  if (rest.startsWith('@')) { const sp = rest.indexOf(' '); tags = parseTags(rest.slice(0, sp)); rest = rest.slice(sp + 1); }
+  const m = rest.match(/^:(\S+?)(?:!\S+)? (\S+) #\S+(?: :(.*))?$/);
+  if (!m) return;
+  const [, , cmd, text = ''] = m;
+  if (cmd === 'PRIVMSG') {
+    let body = text, action = false;
+    if (body.startsWith('\u0001ACTION ')) { body = body.slice(8, -1); action = true; }
+    const badges = (tags.badges || '').split(',').map(b => b.split('/')[0]);
+    const badgeHtml = ['broadcaster', 'mod', 'vip', 'subscriber'].filter(b => badges.includes(b))
+      .map(b => `<span class="badge b-${b === 'subscriber' ? 'sub' : b}">${b === 'subscriber' ? 'SUB' : b === 'broadcaster' ? 'HOST' : b.toUpperCase()}</span>`).join('');
+    const color = tags.color || '#a78bfa';
+    const name = tags['display-name'] || 'user';
+    add(`${badgeHtml}<span class="user" style="color:${esc(color)}">${esc(name)}</span>${action ? ' ' : ': '}<span ${action ? `style="color:${esc(color)}"` : ''}>${renderText(body, tags.emotes)}</span>`);
+  } else if (cmd === 'USERNOTICE' && tags['system-msg']) {
+    add(esc(tags['system-msg'].replace(/\\s/g, ' ')) + (text ? ': ' + esc(text) : ''), 'event');
+  }
+}
+
+function start(chan) {
+  channel = chan;
+  document.getElementById('title').textContent = '#' + chan;
+  log.style.display = '';
+  log.innerHTML = '';
+  if (ws) { ws.onclose = null; ws.close(); }
+  setState(false, 'Connecting…');
+  ws = new WebSocket('wss://irc-ws.chat.twitch.tv:443');
+  ws.onopen = () => {
+    ws.send('CAP REQ :twitch.tv/tags twitch.tv/commands');
+    ws.send('PASS SCHMOOPIIE');
+    ws.send('NICK justinfan' + Math.floor(10000 + Math.random() * 80000));
+    ws.send('JOIN #' + chan);
+  };
+  ws.onmessage = (e) => e.data.split('\r\n').filter(Boolean).forEach(l => {
+    if (l.includes(' JOIN #')) { setState(true, 'Live'); retry = 1000; add(`Connected to #${esc(chan)}`, 'event'); }
+    handleLine(l);
+  });
+  ws.onclose = () => {
+    setState(false, 'Reconnecting…');
+    setTimeout(() => start(channel), retry);
+    retry = Math.min(retry * 2, 30000);
+  };
+}
+
+fetch('/api/twitch_channel').then(r => r.json()).then(s => {
+  const c = (s.channel || '').replace(/^#/, '').toLowerCase();
+  c ? start(c) : showSetup();
+}).catch(showSetup);
+</script>
+</body>
+</html>

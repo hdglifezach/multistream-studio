@@ -1,0 +1,55 @@
+# --- secrets and per-user data: NEVER commit ---------------------------------
+config.json
+config.*.json
+config.broken-*.json
+app_credentials.json
+!app/app_credentials.example.json
+browser-profile/
+*.pem
+*.pfx
+*.p12
+*.key
+*.token
+.env
+.env.*
+app.log
+*.log
+
+# --- build outputs -----------------------------------------------------------
+build/
+dist/
+out/
+payload/
+pkg/
+*.dll
+*.exe
+*.lib
+*.exp
+*.obj
+*.res
+*.pdb
+*.ilk
+*.zip
+
+# --- SDK downloads (OBS sources, obs-deps, Qt): fetched by tools/prepare_sdk.ps1 ---
+obs-sdk/
+sdk/lib/
+deps/
+downloads/
+
+# --- Python ------------------------------------------------------------------
+__pycache__/
+*.pyc
+*.spec
+.venv/
+venv/
+pyenv/
+
+# --- backups / editors -------------------------------------------------------
+_old_*/
+*.bak
+*.tmp
+.vscode/
+.idea/
+Thumbs.db
+dev_obs_dirs.txt
