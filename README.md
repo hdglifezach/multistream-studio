@@ -52,7 +52,7 @@ Needs Visual Studio 2022 Build Tools (C++ x64 + Windows SDK) and Python 3.12.
 
 ```bat
 python -m pip install -r requirements.txt
-pwsh -File tools\prepare_sdk.ps1 -Root C:\obs-sdk      :: downloads OBS 32.2.2 sources + Windows build and obs-deps Qt 6 (hash-checked)
+powershell -File tools\prepare_sdk.ps1 -Root C:\obs-sdk :: downloads OBS 32.2.2 sources + Windows build and obs-deps Qt 6 (hash-checked); pwsh works too
 set OBS_SDK_ROOT=C:\obs-sdk
 plugin\build.bat                                        :: -> plugin\build\multistream-studio.dll
 installer\build_setup.bat                               :: -> installer\out\MultistreamStudio-Setup.exe

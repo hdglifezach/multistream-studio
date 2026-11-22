@@ -1332,7 +1332,7 @@ static void launch_app()
 		return; // not installed (e.g. a developer running the app from source)
 	std::wstring cmd = L"\"" + std::wstring(path) + L"\"";
 	if (char *cfg = os_get_config_path_ptr("obs-studio")) {
-		if (wchar_t *wcfg = os_utf8_to_wcs_ptr(cfg)) {
+		if (wchar_t *wcfg = os_utf8_to_wcs_ptr(cfg, 0)) {
 			cmd += L" --obs-config-dir \"" + std::wstring(wcfg) + L"\"";
 			bfree(wcfg);
 		}
