@@ -106,10 +106,12 @@ def version_ok(exe):
 
 
 def writable(folder):
-    """Can this user write there without admin? (creates the folder if missing, when allowed)"""
+    """Can this user write there without admin? Side-effect free: probes the deepest folder that already exists
+    (creating a missing folder there needs the same right as writing a file in it)."""
     folder = Path(folder)
+    while not folder.exists() and folder.parent != folder:
+        folder = folder.parent
     try:
-        folder.mkdir(parents=True, exist_ok=True)
         probe = folder / f".ms-write-test-{os.getpid()}"
         probe.write_text("x")
         probe.unlink()
