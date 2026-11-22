@@ -1342,10 +1342,16 @@ static void launch_app()
 			size_t cut = cfg.find_last_of("/\\");
 			cfg = cut == std::string::npos ? "" : cfg.substr(0, cut);
 		}
-		wchar_t *wcfg = nullptr;
-		if (!cfg.empty() && os_utf8_to_wcs_ptr(cfg.c_str(), 0, &wcfg) && wcfg)
-			cmd += L" --obs-config-dir \"" + std::wstring(wcfg) + L"\"";
-		bfree(wcfg);
+		if (!cfg.empty()) {
+			if (char *abs = os_get_abs_path_ptr(cfg.c_str())) { // portable OBS gives "../../config/obs-studio"
+				cfg = abs;
+				bfree(abs);
+			}
+			wchar_t *wcfg = nullptr;
+			if (os_utf8_to_wcs_ptr(cfg.c_str(), 0, &wcfg) && wcfg)
+				cmd += L" --obs-config-dir \"" + std::wstring(wcfg) + L"\"";
+			bfree(wcfg);
+		}
 	}
 	std::vector<wchar_t> buf(cmd.begin(), cmd.end());
 	buf.push_back(0);
