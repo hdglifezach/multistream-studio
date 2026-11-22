@@ -28,7 +28,7 @@ build scripts and workflow.
 
 ## Team and roles
 
-- **Authors (committers):** the repository owner (`<github-owner>`). Changes from anyone else arrive as pull requests.
+- **Authors (committers):** the repository owner ([@hdglifezach](https://github.com/hdglifezach)). Changes from anyone else arrive as pull requests.
 - **Reviewers:** the repository owner reviews and merges every pull request before it can reach `main`.
 - **Approvers:** the repository owner approves every signing request in SignPath.
 
