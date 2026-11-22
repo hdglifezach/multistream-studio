@@ -1331,12 +1331,21 @@ static void launch_app()
 	if (GetFileAttributesW(path) == INVALID_FILE_ATTRIBUTES)
 		return; // not installed (e.g. a developer running the app from source)
 	std::wstring cmd = L"\"" + std::wstring(path) + L"\"";
-	if (char *cfg = os_get_config_path_ptr("obs-studio")) {
+	// obs_module_config_path is portable-aware (the frontend sets it): "<config>/plugin_config/multistream-studio/".
+	// Two levels up is OBS's config folder. (os_get_config_path would always say %APPDATA%, wrong for portable OBS.)
+	if (char *mod = obs_module_config_path("")) {
+		std::string cfg = mod;
+		bfree(mod);
+		for (int up = 0; up < 2; up++) {
+			while (!cfg.empty() && (cfg.back() == '/' || cfg.back() == '\\'))
+				cfg.pop_back();
+			size_t cut = cfg.find_last_of("/\\");
+			cfg = cut == std::string::npos ? "" : cfg.substr(0, cut);
+		}
 		wchar_t *wcfg = nullptr;
-		if (os_utf8_to_wcs_ptr(cfg, 0, &wcfg) && wcfg)
+		if (!cfg.empty() && os_utf8_to_wcs_ptr(cfg.c_str(), 0, &wcfg) && wcfg)
 			cmd += L" --obs-config-dir \"" + std::wstring(wcfg) + L"\"";
 		bfree(wcfg);
-		bfree(cfg);
 	}
 	std::vector<wchar_t> buf(cmd.begin(), cmd.end());
 	buf.push_back(0);
