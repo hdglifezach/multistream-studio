@@ -12,11 +12,9 @@ where dumpbin.exe >nul 2>nul || (echo dumpbin.exe not found: run from a VS x64 d
 if not exist "%OUT%" mkdir "%OUT%"
 for %%D in (obs obs-frontend-api) do (
   if not exist "%BIN%\%%D.dll" (echo %BIN%\%%D.dll not found & exit /b 1)
-  dumpbin /nologo /exports "%BIN%\%%D.dll" > "%OUT%\%%D.exports.txt"
-  echo LIBRARY %%D> "%OUT%\%%D.def"
-  echo EXPORTS>> "%OUT%\%%D.def"
-  rem dumpbin's export table: skip the header, take the 4th column (the symbol name)
-  for /f "skip=19 tokens=4" %%F in ('type "%OUT%\%%D.exports.txt"') do @echo %%F>> "%OUT%\%%D.def"
+  dumpbin /nologo /exports "%BIN%\%%D.dll" > "%OUT%\%%D.exports.txt" || exit /b 1
+  rem Export table rows look like "   12   B 00001234 obs_source_create"; take the name column (works for any header length).
+  powershell -NoProfile -ExecutionPolicy Bypass -Command "$names = Get-Content '%OUT%\%%D.exports.txt' | ForEach-Object { if ($_ -match '^\s+\d+\s+[0-9A-Fa-f]+\s+[0-9A-Fa-f]{8}\s+(\S+)') { $matches[1] } }; if ($names.Count -lt 10) { exit 1 }; Set-Content -Path '%OUT%\%%D.def' -Value (@('LIBRARY %%D', 'EXPORTS') + $names) -Encoding ASCII; Write-Host ('  ' + $names.Count + ' exports from %%D.dll')" || (echo could not parse exports of %%D.dll & exit /b 1)
   lib /nologo /def:"%OUT%\%%D.def" /machine:x64 /out:"%OUT%\%%D.lib" || exit /b 1
 )
 echo Import libraries written to %OUT%
